@@ -475,9 +475,9 @@ class Tree(KeyWidget, Widget):
         if res.cancel_op:
             await self.remove_item()
 
-    async def apply_filter(self, filter) -> None:
+    async def apply_filter(self, filter_f) -> None:
         for i in self.query(self.widget_type):
-            await i.apply_filter(filter)
+            await i.apply_filter(filter_f)
 
     async def apply_sort(self, id_: str, method: str) -> None:
         widget = self.get_widget_by_id(id_)
