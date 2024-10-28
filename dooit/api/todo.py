@@ -72,17 +72,17 @@ class Todo(Model):
     @property
     def tags(self) -> List[str]:
         return [i for i in self.description.split() if i[0] == "@"]
+    
+    @description.setter
+    def description(self, value):
+        self._description.value = value
 
-    def add_child(
-        self, kind: str = "todo", index: int = 0, inherit: bool = False
-    ) -> Any:
-        if kind != "todo":
-            raise TypeError(f"Cannot add child of kind {kind}")
-
-        return super().add_child(kind, index, inherit)
+    @effort.setter
+    def effort(self, value):
+        self._effort._value = value
 
     def add_todo(self, index: int = 0, inherit: bool = False):
-        return self.add_child(TODO, index, inherit)
+        return self.child_manager.add_child(TODO, index, inherit)
 
     def edit(self, key: str, value: str) -> Result:
         res = super().edit(key, value)
@@ -167,7 +167,7 @@ class Todo(Model):
                 elif len(i) > 1 and not i[0]['description']:
                     i[0]['description'] = '<Empty>'
 
-                child_todo = self.add_child(kind="todo", index=len(self.todos))
+                child_todo = self.child_manager.add_child(kind="todo", index=len(self.todos))
                 child_todo.from_data(i, overwrite_uuid)
 
     # ----------- HELPER FUNCTIONS --------------

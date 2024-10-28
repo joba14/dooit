@@ -296,7 +296,7 @@ class Tree(KeyWidget, Widget):
             self.styles.overflow_x = "auto"
             await i.remove()
 
-        child = self.model.add_child(self.ModelType.class_kind)
+        child = self.model.child_manager.add_child(self.ModelType.class_kind)
         new_widget = self.WidgetType(child)
         await self.mount(new_widget)
         self.current = new_widget
@@ -312,7 +312,7 @@ class Tree(KeyWidget, Widget):
             self.current.toggle_expand()
 
         new_node = (
-            self.node.add_child(self.ModelType.class_kind)
+            self.node.child_manager.add_child(self.ModelType.class_kind)
             if type_ == "child"
             else self.node.add_sibling()
         )

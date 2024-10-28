@@ -1,3 +1,4 @@
+
 from typing import Any, Dict, Optional
 from ..api.todo import Todo
 from .model import Model
@@ -21,10 +22,10 @@ class Workspace(Model):
         return self._description.value
 
     def add_workspace(self, index: int = 0) -> "Workspace":
-        return super().add_child(WORKSPACE, index)
+        return self.child_manager.add_child(WORKSPACE, index)
 
     def add_todo(self, index: int = 0) -> Todo:
-        return super().add_child(TODO, index)
+        return self.child_manager.add_child(TODO, index)
 
     def commit(self) -> Dict[str, Any]:
         child_workspaces = [
@@ -49,7 +50,7 @@ class Workspace(Model):
                     todo.from_data(k)
                 continue
 
-            workspace = self.add_child("workspace", index=len(self.workspaces))
+            workspace = self.child_manager.add_child("workspace", index=len(self.workspaces))
             workspace.edit("description", i)
             workspace.from_data(j)
 
