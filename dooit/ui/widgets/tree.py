@@ -1,3 +1,6 @@
+
+# pylint: disable=too-many-public-methods
+
 from typing import Any, List, Literal, Optional, Type, Union
 from textual.app import ComposeResult
 from textual.reactive import Reactive
@@ -20,6 +23,7 @@ from dooit.ui.widgets.sort_options import SortOptions
 from dooit.ui.widgets.bar.status_bar import StatusBar
 from dooit.ui.widgets.todo import TodoWidget
 from dooit.ui.widgets.workspace import WorkspaceWidget
+
 
 PRINTABLE = (
     "0123456789"
@@ -54,6 +58,7 @@ class Tree(KeyWidget, Widget):
         self.border_title = tree_name.replace("Tree", "s")  # Making it plural
         self.sort_menu = SortOptions(self.ModelType)
         self.search_menu = SearchMenu(self.model, self.ModelType.class_kind)
+        self._visible_nodes_cache = []
 
     @property
     def is_cursor_available(self) -> bool:
@@ -61,10 +66,7 @@ class Tree(KeyWidget, Widget):
 
     @property
     def node(self) -> ModelType:
-        if self.current:
-            return self.current.model
-
-        return self.model
+        return self.current.model if self.current else self.model
 
     @property
     def visible_nodes(self) -> List[WidgetType]:
@@ -102,6 +104,8 @@ class Tree(KeyWidget, Widget):
 
         if self.search_menu.styles.layer == "L4":
             return self.search_menu
+
+        return None
 
     def get_children(self, parent: Model) -> List[ModelType]:
         return parent.workspaces
@@ -179,7 +183,7 @@ class Tree(KeyWidget, Widget):
         if self.current:
             highlighted = self.current.id
 
-        was_expanded = dict()
+        was_expanded = {}
         for i in self.query(self.WidgetType):
             was_expanded[i.id] = getattr(i, "expanded", False)
             i.remove()
@@ -215,14 +219,14 @@ class Tree(KeyWidget, Widget):
     def next_node(self, is_sibling=False) -> Optional[WidgetType]:
         nodes = self.visible_nodes
         if not nodes:
-            return
+            return None
 
         if not self.current:
             return nodes[0] if nodes else None
 
         idx = nodes.index(self.current)
         if idx == len(nodes) - 1:
-            return
+            return None
 
         next_node = nodes[idx + 1]
 
@@ -240,14 +244,14 @@ class Tree(KeyWidget, Widget):
         nodes = self.visible_nodes
 
         if not nodes:
-            return
+            return None
 
         if not self.current:
-            return
+            return None
 
         idx = nodes.index(self.current)
         if not idx:
-            return
+            return None
 
         return nodes[idx - 1]
 
@@ -473,9 +477,9 @@ class Tree(KeyWidget, Widget):
         if res.cancel_op:
             await self.remove_item()
 
-    async def apply_filter(self, filter) -> None:
+    async def apply_filter(self, filter_f) -> None:
         for i in self.query(self.widget_type):
-            await i.apply_filter(filter)
+            await i.apply_filter(filter_f)
 
     async def apply_sort(self, id_: str, method: str) -> None:
         widget = self.get_widget_by_id(id_)
@@ -515,7 +519,7 @@ class Tree(KeyWidget, Widget):
         ):
             return await getattr(self.current_visible_widget, "keypress")(key)
 
-        if self.current and self.current._is_editing():
+        if self.current and self.current.is_editing():
             return await self.current.keypress(key)
 
         await super().keypress(key)

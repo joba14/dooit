@@ -1,3 +1,4 @@
-from dooit.__init__ import main
+
+from dooit.__main__ import main
 
 main()

@@ -44,7 +44,7 @@ class Node(Widget):
     def _get_all_children(self) -> List[Self]:
         return [i for i in self.children if isinstance(i, self.__class__)]
 
-    def _is_editing(self) -> Union[Literal[False], SimpleInput]:
+    def is_editing(self) -> Union[Literal[False], SimpleInput]:
         if q := self.query(".editing"):
             q = q.first()
             if isinstance(q, SimpleInput):
@@ -145,7 +145,7 @@ class Node(Widget):
             i.refresh_value()
 
     async def keypress(self, key: str) -> None:
-        if w := self._is_editing():
+        if w := self.is_editing():
             await w.keypress(key)
 
     async def apply_filter(self, filter: str) -> None:
