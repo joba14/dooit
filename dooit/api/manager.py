@@ -31,7 +31,7 @@ class Manager(Model):
         super().__init__(parent)
 
     def add_workspace(self) -> Workspace:
-        return self.add_child("workspace")
+        return self.child_manager.add_child("workspace")
 
     def _get_commit_data(self):
         return [child.commit() for child in self.workspaces]
@@ -61,13 +61,13 @@ class Manager(Model):
     # WARNING: This will be deprecated in future versions
     def extract_data_old(self, data: Dict):
         for i, j in data.items():
-            child = self.add_child(WORKSPACE, len(self.workspaces))
+            child = self.child_manager.add_child(WORKSPACE, len(self.workspaces))
             child.edit("description", i)
             child.from_data(j)
 
     def extract_data_new(self, data: List):
         for i in data:
-            child = self.add_child(WORKSPACE, len(self.workspaces))
+            child = self.child_manager.add_child(WORKSPACE, len(self.workspaces))
             child.from_data(i)
 
     def from_data(self, data: Any) -> None:

@@ -39,11 +39,11 @@ class Dooit(App):
         ):
             await self.query_one(WorkspaceTree).force_refresh(manager)
             for i in self.query(TodoTree):
-                index = manager.get_child_index("workspace", uuid=i.model.uuid)
+                index = manager.child_manager.get_child_index("workspace", uuid=i.model.uuid)
                 if index == -1:
                     i.remove()
                 else:
-                    await i.force_refresh(manager.get_children("workspace")[index])
+                    await i.force_refresh(manager.child_manager.get_children("workspace")[index])
 
     async def action_quit(self) -> None:
         manager.commit()

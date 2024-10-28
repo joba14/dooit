@@ -56,6 +56,48 @@ Err = Result.result_err
 Warn = Result.result_warn
 
 
+class ChildManager:
+    """
+    Manages children operations for Model class
+    """
+
+    def __init__(self, parent: "Model"):
+        self.parent = parent
+
+    def get_children(self, kind: str) -> List:
+        if kind not in ["workspace", "todo"]:
+            raise TypeError(f"Cannot perform this operation for type {kind}")
+        return self.parent.workspaces if kind.lower() == "workspace" else self.parent.todos
+
+    def get_child_index(self, kind: str, **kwargs) -> int:
+        key, value = list(kwargs.items())[0]
+        for i, child in enumerate(self.get_children(kind)):
+            if getattr(child, key) == value:
+                return i
+        return -1
+
+    def add_child(self, kind: str, index: int = 0, inherit: bool = False) -> Any:
+        # We cannot place those imports at the file scope because
+        # that would cause relatve import error
+        # pylint: disable=relative-beyond-top-level,import-outside-toplevel
+        from ..api.workspace import Workspace
+        from ..api.todo import Todo
+
+        child = Workspace(parent=self.parent) if kind == "workspace" else Todo(parent=self.parent)
+        if inherit and isinstance(self.parent, Todo):
+            child.fill_from_data(self.parent.to_data(), overwrite_uuid=False)
+            child.description, child.effort = "", 0
+            child.edit("status", "PENDING")
+
+        children = self.get_children(kind)
+        children.insert(index, child)
+        return child
+
+    def remove_child(self, kind: str, uuid: str) -> Optional[Any]:
+        idx = self.get_child_index(kind, uuid=uuid)
+        return self.get_children(kind).pop(idx) if idx != -1 else None
+
+
 class Model:
     """
     Model class to for the base tree structure
@@ -72,6 +114,7 @@ class Model:
         self._uuid = f"{self.kind}_{uuid4()}"
         self.parent = parent
 
+        self.child_manager = ChildManager(self)
         self.workspaces: List[Workspace] = []
         self.todos: List[Todo] = []
 
@@ -98,14 +141,14 @@ class Model:
     @property
     def is_last_sibling(self) -> bool:
         if parent := self.parent:
-            return parent.get_children(self.kind)[-1] == self
+            return parent.child_manager.get_children(self.kind)[-1] == self
 
         return False
 
     @property
     def is_first_sibling(self) -> bool:
         if parent := self.parent:
-            return parent.get_children(self.kind)[0] == self
+            return parent.child_manager.get_children(self.kind)[0] == self
 
         return False
 
@@ -116,27 +159,6 @@ class Model:
 
         return False
 
-    def get_children(self, kind: str) -> List:
-        """
-        Get children list (workspace/todo)
-        """
-        if kind not in ["workspace", "todo"]:
-            raise TypeError(f"Cannot perform this operation for type {kind}")
-
-        return self.workspaces if kind.lower() == "workspace" else self.todos
-
-    def get_child_index(self, kind: str, **kwargs) -> int:
-        """
-        Get child index by attr
-        """
-
-        key, value = list(kwargs.items())[0]
-        for i, j in enumerate(self.get_children(kind)):
-            if getattr(j, key) == value:
-                return i
-
-        return -1
-
     def _get_index(self) -> int:
         """
         Get items's index among it's siblings
@@ -145,7 +167,7 @@ class Model:
         if not self.parent:
             return -1
 
-        return self.parent.get_child_index(self.kind, uuid=self._uuid)
+        return self.parent.child_manager.get_child_index(self.kind, uuid=self._uuid)
 
     def edit(self, key: str, value: str) -> Result:
         """
@@ -170,7 +192,7 @@ class Model:
 
         if not self.parent:
             return
-        arr = self.parent.get_children(self.kind)
+        arr = self.parent.child_manager.get_children(self.kind)
         arr[idx], arr[idx - 1] = arr[idx - 1], arr[idx]
 
     def shift_down(self) -> bool:
@@ -183,7 +205,7 @@ class Model:
         if idx == -1 or not self.parent:
             return False
 
-        arr = self.parent.get_children(self.kind)
+        arr = self.parent.child_manager.get_children(self.kind)
         if idx == len(arr) - 1:
             return False
 
@@ -198,10 +220,10 @@ class Model:
         if not self.parent:
             return None
 
-        idx = self.parent.get_child_index(self.kind, uuid=self._uuid)
+        idx = self.parent.child_manager.get_child_index(self.kind, uuid=self._uuid)
 
         if idx:
-            return self.parent.get_children(self.kind)[idx - 1]
+            return self.parent.child_manager.get_children(self.kind)[idx - 1]
         return None
 
     def next_sibling(self) -> Optional[Self]:
@@ -212,8 +234,8 @@ class Model:
         if not self.parent:
             return None
 
-        idx = self.parent.get_child_index(self.kind, uuid=self._uuid)
-        arr = self.parent.get_children(self.kind)
+        idx = self.parent.child_manager.get_child_index(self.kind, uuid=self._uuid)
+        arr = self.parent.child_manager.get_children(self.kind)
 
         if idx < len(arr) - 1:
             return arr[idx + 1]
@@ -225,44 +247,9 @@ class Model:
         """
 
         if self.parent:
-            return self.parent.add_child(self.kind, self._get_index() + 1, inherit)
+            return self.parent.child_manager.add_child(self.kind, self._get_index() + 1, inherit)
 
         raise TypeError("Cannot add sibling")
-
-    def add_child(self, kind: str, index: int = 0, inherit: bool = False) -> Any:
-        """
-        Adds a child to specified index (Defaults to first position)
-        """
-        # We cannot place those imports at the file scope because
-        # that would cause relatve import error
-        # pylint: disable=relative-beyond-top-level,import-outside-toplevel
-        from ..api.workspace import Workspace
-        from ..api.todo import Todo
-
-        if kind == "workspace":
-            child = Workspace(parent=self)
-        else:
-            child = Todo(parent=self)
-            if inherit and isinstance(self, Todo):
-                child.fill_from_data(self.to_data(), overwrite_uuid=False)
-                child.description = ""
-                child.effort = 0
-                child.edit("status", "PENDING")
-
-        children = self.get_children(kind)
-        children.insert(index, child)
-
-        return child
-
-    def remove_child(self, kind: str, uuid: str) -> Any:
-        """
-        Remove the child based on attr
-        """
-
-        idx = self.get_child_index(kind, uuid=uuid)
-        if idx != -1:
-            return self.get_children(kind).pop(idx)
-        return None
 
     def drop(self) -> None:
         """
@@ -270,7 +257,7 @@ class Model:
         """
 
         if self.parent:
-            self.parent.remove_child(self.kind, self._uuid)
+            self.parent.child_manager.remove_child(self.kind, self._uuid)
 
     def sort(self, attr: str) -> None:
         """
@@ -278,7 +265,7 @@ class Model:
         """
 
         if self.parent:
-            children = self.parent.get_children(self.kind)
+            children = self.parent.child_manager.get_children(self.kind)
             children.sort(key=lambda x: getattr(x, f"_{attr}").get_sortable())
 
     def commit(self) -> Dict[str, Any]:
@@ -300,8 +287,8 @@ class Model:
     def get_all_workspaces(self) -> List:
         # We cannot place those imports at the file scope because
         # that would cause relatve import error
-        # pylint: disable=import-outside-toplevel
-        from dooit.api.workspace import Workspace
+        # pylint: disable=import-outside-toplevel,relative-beyond-top-level
+        from ..api.workspace import Workspace
 
         arr = [self] if isinstance(self, Workspace) else []
         for i in self.workspaces:
@@ -312,8 +299,8 @@ class Model:
     def get_all_todos(self) -> List:
         # We cannot place those imports at the file scope because
         # that would cause relatve import error
-        # pylint: disable=import-outside-toplevel
-        from dooit.api.todo import Todo
+        # pylint: disable=import-outside-toplevel,relative-beyond-top-level
+        from ..api.todo import Todo
 
         arr = [self] if isinstance(self, Todo) else []
         for i in self.todos:
