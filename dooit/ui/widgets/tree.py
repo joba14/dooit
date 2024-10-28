@@ -217,14 +217,14 @@ class Tree(KeyWidget, Widget):
     def next_node(self, is_sibling=False) -> Optional[WidgetType]:
         nodes = self.visible_nodes
         if not nodes:
-            return
+            return None
 
         if not self.current:
             return nodes[0] if nodes else None
 
         idx = nodes.index(self.current)
         if idx == len(nodes) - 1:
-            return
+            return None
 
         next_node = nodes[idx + 1]
 
