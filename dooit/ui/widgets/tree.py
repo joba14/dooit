@@ -1,3 +1,6 @@
+
+# pylint: disable=too-many-public-methods
+
 from typing import Any, List, Literal, Optional, Type, Union
 from textual.app import ComposeResult
 from textual.reactive import Reactive
