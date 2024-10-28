@@ -517,7 +517,7 @@ class Tree(KeyWidget, Widget):
         ):
             return await getattr(self.current_visible_widget, "keypress")(key)
 
-        if self.current and self.current._is_editing():
+        if self.current and self.current.is_editing():
             return await self.current.keypress(key)
 
         await super().keypress(key)
