@@ -72,6 +72,14 @@ class Todo(Model):
     @property
     def tags(self) -> List[str]:
         return [i for i in self.description.split() if i[0] == "@"]
+    
+    @description.setter
+    def description(self, value):
+        self._description.value = value
+
+    @effort.setter
+    def effort(self, value):
+        self._effort._value = value
 
     def add_child(
         self, kind: str = "todo", index: int = 0, inherit: bool = False

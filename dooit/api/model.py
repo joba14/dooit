@@ -1,8 +1,13 @@
-from typing import Any, ClassVar, Dict, List, Literal, Optional
-from typing_extensions import Self
 from uuid import uuid4
 from dataclasses import dataclass
+from typing import Any, ClassVar, Dict, List, Literal, Optional, TYPE_CHECKING
+from typing_extensions import Self
 from rich.text import Text
+
+if TYPE_CHECKING:
+    from dooit.api.workspace import Workspace
+    from dooit.api.todo import Todo
+
 
 SortMethodType = Literal["description", "status", "due", "urgency", "effort"]
 
@@ -19,15 +24,15 @@ class Result:
     color: str = "white"
 
     @classmethod
-    def Ok(cls, message: Optional[str] = None):
+    def result_ok(cls, message: Optional[str] = None):
         return cls(True, False, message, "green")
 
     @classmethod
-    def Warn(cls, message: Optional[str] = None):
+    def result_warn(cls, message: Optional[str] = None):
         return cls(False, False, message, "yellow")
 
     @classmethod
-    def Err(cls, message: str):
+    def result_err(cls, message: str):
         return cls(False, True, message, "red")
 
     def is_ok(self) -> bool:
@@ -46,9 +51,9 @@ class Result:
         return Text()
 
 
-Ok = Result.Ok
-Err = Result.Err
-Warn = Result.Warn
+Ok = Result.result_ok
+Err = Result.result_err
+Warn = Result.result_warn
 
 
 class Model:
@@ -64,9 +69,6 @@ class Model:
         self,
         parent: Optional["Model"] = None,
     ) -> None:
-        from dooit.api.workspace import Workspace
-        from dooit.api.todo import Todo
-
         self._uuid = f"{self.kind}_{uuid4()}"
         self.parent = parent
 
@@ -96,14 +98,14 @@ class Model:
     @property
     def is_last_sibling(self) -> bool:
         if parent := self.parent:
-            return parent._get_children(self.kind)[-1] == self
+            return parent.get_children(self.kind)[-1] == self
 
         return False
 
     @property
     def is_first_sibling(self) -> bool:
         if parent := self.parent:
-            return parent._get_children(self.kind)[0] == self
+            return parent.get_children(self.kind)[0] == self
 
         return False
 
@@ -114,7 +116,7 @@ class Model:
 
         return False
 
-    def _get_children(self, kind: str) -> List:
+    def get_children(self, kind: str) -> List:
         """
         Get children list (workspace/todo)
         """
@@ -123,13 +125,13 @@ class Model:
 
         return self.workspaces if kind.lower() == "workspace" else self.todos
 
-    def _get_child_index(self, kind: str, **kwargs) -> int:
+    def get_child_index(self, kind: str, **kwargs) -> int:
         """
         Get child index by attr
         """
 
         key, value = list(kwargs.items())[0]
-        for i, j in enumerate(self._get_children(kind)):
+        for i, j in enumerate(self.get_children(kind)):
             if getattr(j, key) == value:
                 return i
 
@@ -143,7 +145,7 @@ class Model:
         if not self.parent:
             return -1
 
-        return self.parent._get_child_index(self.kind, uuid=self._uuid)
+        return self.parent.get_child_index(self.kind, uuid=self._uuid)
 
     def edit(self, key: str, value: str) -> Result:
         """
@@ -153,8 +155,8 @@ class Model:
         var = f"_{key}"
         if hasattr(self, var):
             return getattr(self, var).set(value)
-        else:
-            return Err("Invalid Request!")
+
+        return Err("Invalid Request!")
 
     def shift_up(self) -> None:
         """
@@ -168,7 +170,7 @@ class Model:
 
         if not self.parent:
             return
-        arr = self.parent._get_children(self.kind)
+        arr = self.parent.get_children(self.kind)
         arr[idx], arr[idx - 1] = arr[idx - 1], arr[idx]
 
     def shift_down(self) -> bool:
@@ -181,7 +183,7 @@ class Model:
         if idx == -1 or not self.parent:
             return False
 
-        arr = self.parent._get_children(self.kind)
+        arr = self.parent.get_children(self.kind)
         if idx == len(arr) - 1:
             return False
 
@@ -194,12 +196,13 @@ class Model:
         """
 
         if not self.parent:
-            return
+            return None
 
-        idx = self.parent._get_child_index(self.kind, uuid=self._uuid)
+        idx = self.parent.get_child_index(self.kind, uuid=self._uuid)
 
         if idx:
-            return self.parent._get_children(self.kind)[idx - 1]
+            return self.parent.get_children(self.kind)[idx - 1]
+        return None
 
     def next_sibling(self) -> Optional[Self]:
         """
@@ -207,13 +210,14 @@ class Model:
         """
 
         if not self.parent:
-            return
+            return None
 
-        idx = self.parent._get_child_index(self.kind, uuid=self._uuid)
-        arr = self.parent._get_children(self.kind)
+        idx = self.parent.get_child_index(self.kind, uuid=self._uuid)
+        arr = self.parent.get_children(self.kind)
 
         if idx < len(arr) - 1:
             return arr[idx + 1]
+        return None
 
     def add_sibling(self, inherit: bool = False) -> Self:
         """
@@ -222,13 +226,16 @@ class Model:
 
         if self.parent:
             return self.parent.add_child(self.kind, self._get_index() + 1, inherit)
-        else:
-            raise TypeError("Cannot add sibling")
+
+        raise TypeError("Cannot add sibling")
 
     def add_child(self, kind: str, index: int = 0, inherit: bool = False) -> Any:
         """
         Adds a child to specified index (Defaults to first position)
         """
+        # We cannot place those imports at the file scope because
+        # that would cause relatve import error
+        # pylint: disable=relative-beyond-top-level,import-outside-toplevel
         from ..api.workspace import Workspace
         from ..api.todo import Todo
 
@@ -238,11 +245,11 @@ class Model:
             child = Todo(parent=self)
             if inherit and isinstance(self, Todo):
                 child.fill_from_data(self.to_data(), overwrite_uuid=False)
-                child._description.value = ""
-                child._effort._value = 0
+                child.description = ""
+                child.effort = 0
                 child.edit("status", "PENDING")
 
-        children = self._get_children(kind)
+        children = self.get_children(kind)
         children.insert(index, child)
 
         return child
@@ -252,9 +259,10 @@ class Model:
         Remove the child based on attr
         """
 
-        idx = self._get_child_index(kind, uuid=uuid)
+        idx = self.get_child_index(kind, uuid=uuid)
         if idx != -1:
-            return self._get_children(kind).pop(idx)
+            return self.get_children(kind).pop(idx)
+        return None
 
     def drop(self) -> None:
         """
@@ -270,7 +278,7 @@ class Model:
         """
 
         if self.parent:
-            children = self.parent._get_children(self.kind)
+            children = self.parent.get_children(self.kind)
             children.sort(key=lambda x: getattr(x, f"_{attr}").get_sortable())
 
     def commit(self) -> Dict[str, Any]:
@@ -290,6 +298,9 @@ class Model:
         raise NotImplementedError
 
     def get_all_workspaces(self) -> List:
+        # We cannot place those imports at the file scope because
+        # that would cause relatve import error
+        # pylint: disable=import-outside-toplevel
         from dooit.api.workspace import Workspace
 
         arr = [self] if isinstance(self, Workspace) else []
@@ -299,6 +310,9 @@ class Model:
         return arr
 
     def get_all_todos(self) -> List:
+        # We cannot place those imports at the file scope because
+        # that would cause relatve import error
+        # pylint: disable=import-outside-toplevel
         from dooit.api.todo import Todo
 
         arr = [self] if isinstance(self, Todo) else []
