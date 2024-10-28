@@ -54,6 +54,7 @@ class Tree(KeyWidget, Widget):
         self.border_title = tree_name.replace("Tree", "s")  # Making it plural
         self.sort_menu = SortOptions(self.ModelType)
         self.search_menu = SearchMenu(self.model, self.ModelType.class_kind)
+        self._visible_nodes_cache = []
 
     @property
     def is_cursor_available(self) -> bool:
