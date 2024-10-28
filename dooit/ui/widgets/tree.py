@@ -242,14 +242,14 @@ class Tree(KeyWidget, Widget):
         nodes = self.visible_nodes
 
         if not nodes:
-            return
+            return None
 
         if not self.current:
-            return
+            return None
 
         idx = nodes.index(self.current)
         if not idx:
-            return
+            return None
 
         return nodes[idx - 1]
 
