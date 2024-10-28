@@ -24,6 +24,7 @@ from dooit.ui.widgets.bar.status_bar import StatusBar
 from dooit.ui.widgets.todo import TodoWidget
 from dooit.ui.widgets.workspace import WorkspaceWidget
 
+
 PRINTABLE = (
     "0123456789"
     + "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
@@ -65,10 +66,7 @@ class Tree(KeyWidget, Widget):
 
     @property
     def node(self) -> ModelType:
-        if self.current:
-            return self.current.model
-
-        return self.model
+        return self.current.model if self.current else self.model
 
     @property
     def visible_nodes(self) -> List[WidgetType]:
