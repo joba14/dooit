@@ -181,7 +181,7 @@ class Tree(KeyWidget, Widget):
         if self.current:
             highlighted = self.current.id
 
-        was_expanded = dict()
+        was_expanded = {}
         for i in self.query(self.WidgetType):
             was_expanded[i.id] = getattr(i, "expanded", False)
             i.remove()
