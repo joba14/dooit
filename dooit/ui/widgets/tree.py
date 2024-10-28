@@ -103,6 +103,8 @@ class Tree(KeyWidget, Widget):
         if self.search_menu.styles.layer == "L4":
             return self.search_menu
 
+        return None
+
     def get_children(self, parent: Model) -> List[ModelType]:
         return parent.workspaces
 
